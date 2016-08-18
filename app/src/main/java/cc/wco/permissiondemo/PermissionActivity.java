@@ -26,7 +26,7 @@ public class PermissionActivity extends AppCompatActivity {
     private static final String EXTRA_PERMISSIONS = "extra_permission"; //权限参数
 
     private PermissionChecker mChecker; // 权限检测器
-    private boolean isRequireCheck; // 是否需要系统权限检测
+    private boolean isRequireCheck = true; // 是否需要检测权限
 
     //启动当前权限页面的公开接口
     public static void startActivityForResult(Activity activity, int requestCode, String... permissions) {
@@ -44,11 +44,11 @@ public class PermissionActivity extends AppCompatActivity {
             throw new RuntimeException("PermissionsActivity需要通过startActivityForResult静态方法启动！");
         }
 
+        //可以在这里设置View
         LinearLayout linearLayout = new LinearLayout(this);
         setContentView(linearLayout);
 
         mChecker = new PermissionChecker(this);
-        isRequireCheck = true;
     }
 
     @Override
@@ -62,15 +62,13 @@ public class PermissionActivity extends AppCompatActivity {
             } else {
                 allPermissionsGranted(); //全部权限都已获取
             }
-        } else {
-            isRequireCheck = true;
         }
     }
 
     /**
      * 处理授权结果。
-     * 如果全部获取, 则直接过.
-     * 如果权限缺失, 则提示Dialog.
+     * 如果全部获取, 则直接setResult
+     * 如果权限缺失, 则提示Dialog
      *
      * @param requestCode  请求码
      * @param permissions  权限
@@ -79,10 +77,9 @@ public class PermissionActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == PERMISSION_REQUEST_CODE && hasAllPermissionsGranted(grantResults)) {
-            isRequireCheck = true;
             allPermissionsGranted();
         } else {
-            isRequireCheck = false;
+            isRequireCheck = false; //权限被拒绝，设置成false，回到onResume不再次申请，弹出提示框等待用户设置，用户点击设置时再设置为true
             showMissingPermissionDialog();
         }
     }
@@ -103,7 +100,7 @@ public class PermissionActivity extends AppCompatActivity {
         builder.setTitle("系统提示");
         builder.setMessage("当前应用缺少必要权限。\n\n请点击\"设置\"-\"权限\"-打开所需权限。\n\n最后点击两次后退按钮即可返回。");
 
-        //拒绝：退出应用
+        //拒绝
         builder.setNegativeButton("退出", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -112,18 +109,24 @@ public class PermissionActivity extends AppCompatActivity {
             }
         });
 
-        //报团
+        //设置
         builder.setPositiveButton("前去设置", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                //启动系统的应用的设置页面
+                isRequireCheck = true; //权限被用户拒绝时设置为false，弹出提示框等待用户设置；这里重新设置为true，用户设置完回来后才能再次检查权限
+
+                //启动系统的应用设置页面
                 Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                 intent.setData(Uri.parse("package:" + getPackageName())); //当前应用包名
                 startActivity(intent);
             }
         });
 
-        builder.show();
+        //设置AlertDialog不能取消
+        AlertDialog dialog = builder.create();
+        dialog.setCancelable(false);
+
+        dialog.show();
     }
 
     //全部权限均已获取，返回调用页面
